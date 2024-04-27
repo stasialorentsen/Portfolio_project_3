@@ -36,6 +36,32 @@ public class Main {
             e.printStackTrace();
         }
 
-        // At this point, distances are stored in the 'distances' map
+        // Create a graph using the distances between cities
+        Graph graph = new Graph();
+        for (Map.Entry<String, Integer> entry : distances.entrySet()) {
+            String[] cities = entry.getKey().split("-");
+            String city1 = cities[0];
+            String city2 = cities[1];
+            int distance = entry.getValue();
+            // Add edges between cities with the corresponding distances
+            graph.addEdge(city1, city2, distance);
+        }
+
+        // At this point, the graph is created based on the distances between cities
+    }
+
+    static class Graph {
+        Map<String, Map<String, Integer>> adjacencyList;
+
+        public Graph() {
+            adjacencyList = new HashMap<>();
+        }
+
+        public void addEdge(String source, String destination, int weight) {
+            // Add the destination city and distance to the source city's adjacency list
+            adjacencyList.computeIfAbsent(source, k -> new HashMap<>()).put(destination, weight);
+            // Add the source city and distance to the destination city's adjacency list (assuming undirected graph)
+            adjacencyList.computeIfAbsent(destination, k -> new HashMap<>()).put(source, weight);
+        }
     }
 }

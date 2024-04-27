@@ -1,67 +1,94 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class Main {
+    // Map to represent the adjacency list for the graph
+    private static Map<String, Map<String, Integer>> adjacencyList = new HashMap<>();
+
     public static void main(String[] args) {
-        // Path to the text file containing distances
-        String filePath = "distDK.txt";
+        String filePath = "distDK.txt"; // File that contains the graph
 
-        // Map to store distances between cities
-        Map<String, Integer> distances = new HashMap<>();
-
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+        // Reading the graph from the file
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
-            // Read each line from the file
-            while ((line = br.readLine()) != null) {
-                // Split the line by commas to extract city names and distance
+            while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
-                // Check if the line has correct format (city1,city2,distance)
-                if (parts.length == 3) {
-                    // Concatenate city names with a hyphen to form a unique key
-                    String cities = parts[0] + "-" + parts[1];
-                    // Parse the distance value to an integer
-                    int distance = Integer.parseInt(parts[2]);
-                    // Store the distance in the map with the concatenated city names as key
-                    distances.put(cities, distance);
-                } else {
-                    // Print a warning message for lines with incorrect format
-                    System.out.println("Invalid data format: " + line);
-                }
+                String place1 = parts[0];
+                String place2 = parts[1];
+                int weight = Integer.parseInt(parts[2]);
+
+                // Add the road to the adjacency list for both cities
+                adjacencyList
+                        .computeIfAbsent(place1, k -> new HashMap<>())
+                        .put(place2, weight);
+                adjacencyList
+                        .computeIfAbsent(place2, k -> new HashMap<>())
+                        .put(place1, weight);
             }
         } catch (IOException e) {
-            // Print stack trace if an IO exception occurs
             e.printStackTrace();
         }
 
-        // Create a graph using the distances between cities
-        Graph graph = new Graph();
-        for (Map.Entry<String, Integer> entry : distances.entrySet()) {
-            String[] cities = entry.getKey().split("-");
-            String city1 = cities[0];
-            String city2 = cities[1];
-            int distance = entry.getValue();
-            // Add edges between cities with the corresponding distances
-            graph.addEdge(city1, city2, distance);
-        }
+        // Check if the graph is connected, i.e. there's a path from "Helsingør" to every city
+        Set<String> visited = new HashSet<>();
+        String startingCity = "Helsingør";
+        dfs(visited, startingCity);
+        boolean isConnected = visited.size() == adjacencyList.size();
+        System.out.println(isConnected ? "The graph is connected." : "The graph is not connected.");
 
-        // At this point, the graph is created based on the distances between cities
+        // Find the shortest path from "Helsingør" to "Esbjerg"
+        List<String> shortestPath = shortestPath(startingCity, "Esbjerg");
+        System.out.println("Shortest path from " + startingCity + " to Esbjerg: " + String.join(" -> ", shortestPath));
     }
 
-    static class Graph {
-        Map<String, Map<String, Integer>> adjacencyList;
+    // Depth-first search to check connectivity
+    private static void dfs(Set<String> visited, String city) {
+        visited.add(city);
+        Map<String, Integer> neighbors = adjacencyList.get(city);
+        if (neighbors != null) {
+            for (String neighbor : neighbors.keySet()) {
+                if (!visited.contains(neighbor)) {
+                    dfs(visited, neighbor);
+                }
+            }
+        }
+    }
 
-        public Graph() {
-            adjacencyList = new HashMap<>();
+    // Dijkstra's algorithm to find the shortest path
+    private static List<String> shortestPath(String start, String end) {
+        // Map to store the shortest distance from the start city to each city
+        Map<String, Integer> distances = new HashMap<>();
+        // Map to store the previous city on the path from the start to each city
+        Map<String, String> previousCity = new HashMap<>();
+        // Priority queue to choose the next city to visit
+        PriorityQueue<Map.Entry<String, Integer>> queue = new PriorityQueue<>(Map.Entry.comparingByValue());
+
+        distances.put(start, 0);
+        queue.add(new AbstractMap.SimpleEntry<>(start, 0));
+
+        while (!queue.isEmpty()) {
+            String city = queue.poll().getKey();
+
+            for (Map.Entry<String, Integer> entry : adjacencyList.getOrDefault(city, new HashMap<>()).entrySet()) {
+                String neighbour = entry.getKey();
+                int newDistance = distances.getOrDefault(city, Integer.MAX_VALUE) + entry.getValue();
+                if (newDistance < distances.getOrDefault(neighbour, Integer.MAX_VALUE)) {
+                    distances.put(neighbour, newDistance);
+                    previousCity.put(neighbour, city);
+                    queue.add(new AbstractMap.SimpleEntry<>(neighbour, newDistance));
+                }
+            }
         }
 
-        public void addEdge(String source, String destination, int weight) {
-            // Add the destination city and distance to the source city's adjacency list
-            adjacencyList.computeIfAbsent(source, k -> new HashMap<>()).put(destination, weight);
-            // Add the source city and distance to the destination city's adjacency list (assuming undirected graph)
-            adjacencyList.computeIfAbsent(destination, k -> new HashMap<>()).put(source, weight);
+        // Reconstruct the shortest path from start to end
+        List<String> path = new ArrayList<>();
+        for (String city = end; city != null; city = previousCity.get(city)) {
+            path.add(city);
         }
+        Collections.reverse(path); // Reverse it to get the path from start to end
+
+        return path;
     }
 }
